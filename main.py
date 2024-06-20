@@ -60,10 +60,11 @@ def home():
         db.select(MovieList).order_by(MovieList.ranking)).scalars()
     return render_template("index.html", all_movies=all_movies)
 
+
 @app.route("/edit", methods=["POST", "GET"])
 def edit():
     id = request.args.get('id')
-    movie_to_update = db.session.execute(db.select(MovieList).where(MovieList.id == id)).scalar()
+    movie_to_update = db.get_or_404(MovieList, id)
     form = EditForm()
     if request.method == "GET":
         form.rating.data = movie_to_update.rating
@@ -74,5 +75,16 @@ def edit():
         db.session.commit()
         return redirect(url_for('home'))
     return render_template('edit.html', form=form, title=movie_to_update.title)
+
+
+@app.route("/delete")
+def delete():
+    id = request.args.get('id')
+    movie_to_delete = db.get_or_404(MovieList, id)
+    db.session.delete(movie_to_delete)
+    db.session.commit()
+    return redirect(url_for('home'))
+
+
 if __name__ == '__main__':
     app.run(debug=True)
