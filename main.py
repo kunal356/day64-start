@@ -30,18 +30,28 @@ Bootstrap5(app)
 db = SQLAlchemy(app)
 
 # CREATE TABLE
+
+
 class MovieList(db.Model):
-    id : Mapped[int] = mapped_column(Integer, primary_key=True)
-    title : Mapped[str] = mapped_column(String(250), unique=True, nullable=False)
-    year : Mapped[int] = mapped_column(Integer,nullable=True)
-    description : Mapped[str] = mapped_column(String(250), nullable=True)
-    rating : Mapped[float] = mapped_column(Float, nullable=True)
-    ranking : Mapped[int] = mapped_column(Integer, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    title: Mapped[str] = mapped_column(
+        String(250), unique=True, nullable=False)
+    year: Mapped[int] = mapped_column(Integer, nullable=True)
+    description: Mapped[str] = mapped_column(String(250), nullable=True)
+    rating: Mapped[float] = mapped_column(Float, nullable=True)
+    ranking: Mapped[int] = mapped_column(Integer, nullable=True)
     review: Mapped[str] = mapped_column(String(250), nullable=True)
     img_url: Mapped[str] = mapped_column(String(250), nullable=True)
 
+
 with app.app_context():
     db.create_all()
+
+
+class EditForm(FlaskForm):
+    rating = StringField('rating', validators=[DataRequired()])
+    review = StringField('review', validators=[DataRequired()])
+    submit = SubmitField('Submit')
 
 
 @app.route("/")
@@ -50,5 +60,19 @@ def home():
         db.select(MovieList).order_by(MovieList.ranking)).scalars()
     return render_template("index.html", all_movies=all_movies)
 
+@app.route("/edit", methods=["POST", "GET"])
+def edit():
+    id = request.args.get('id')
+    movie_to_update = db.session.execute(db.select(MovieList).where(MovieList.id == id)).scalar()
+    form = EditForm()
+    if request.method == "GET":
+        form.rating.data = movie_to_update.rating
+        form.review.data = movie_to_update.review
+    if form.validate_on_submit():
+        movie_to_update.rating = form.rating.data
+        movie_to_update.review = form.review.data
+        db.session.commit()
+        return redirect(url_for('home'))
+    return render_template('edit.html', form=form, title=movie_to_update.title)
 if __name__ == '__main__':
     app.run(debug=True)
