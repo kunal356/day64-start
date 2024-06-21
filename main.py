@@ -7,6 +7,8 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField
 from wtforms.validators import DataRequired
 import requests
+from dotenv import load_dotenv
+import os
 
 '''
 Red underlines? Install the required packages first: 
@@ -20,6 +22,10 @@ pip3 install -r requirements.txt
 
 This will install the packages from requirements.txt for this project.
 '''
+load_dotenv()
+API_KEY = os.environ['API_KEY']
+ACCES_TOKEN = os.environ['ACCESS_TOKEN']
+
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = '8BYkEfBA6O6donzWlSihBXox7C0sKR6b'
@@ -48,9 +54,14 @@ with app.app_context():
     db.create_all()
 
 
+class AddForm(FlaskForm):
+    title = StringField('Title', validators=[DataRequired()])
+    submit = SubmitField('Add Movie')
+
+
 class EditForm(FlaskForm):
-    rating = StringField('rating', validators=[DataRequired()])
-    review = StringField('review', validators=[DataRequired()])
+    rating = StringField('Rating', validators=[DataRequired()])
+    review = StringField('Review', validators=[DataRequired()])
     submit = SubmitField('Submit')
 
 
@@ -59,6 +70,56 @@ def home():
     all_movies = db.session.execute(
         db.select(MovieList).order_by(MovieList.ranking)).scalars()
     return render_template("index.html", all_movies=all_movies)
+
+
+@app.route("/add", methods=["POST", "GET"])
+def add():
+    form = AddForm()
+    if form.validate_on_submit():
+
+        url = "https://api.themoviedb.org/3/search/movie"
+
+        headers = {
+            "accept": "application/json",
+            "Authorization": f"Bearer {ACCES_TOKEN}"
+        }
+        q_params = {
+            "query": form.title.data,
+            "include_adult": False,
+            "language": "en-US",
+            "page": 1
+        }
+
+        response = requests.get(url, headers=headers, params=q_params)
+        all_movies = response.json()
+
+        return render_template('select.html', all_movies=all_movies)
+
+    return render_template('add.html', form=form)
+
+
+@app.route("/search", methods=["GET"])
+def search():
+    movie_id = request.args.get('movie_id')
+
+    url = f"https://api.themoviedb.org/3/movie/{movie_id}"
+    headers = {
+        "accept": "application/json",
+        "Authorization": f"Bearer {ACCES_TOKEN}"
+    }
+
+    response = requests.get(url, headers=headers)
+    movie = response.json()
+    new_movie = MovieList(
+        title=movie['title'],
+        img_url=f"https://image.tmdb.org/t/p/w500/{movie['poster_path']}",
+        year=f"{movie['release_date'].split("-")[0]}",
+        description=movie['overview']
+    )
+    db.session.add(new_movie)
+    db.session.commit()
+    return redirect(url_for('edit', id=new_movie.id))
+    
 
 
 @app.route("/edit", methods=["POST", "GET"])
