@@ -68,7 +68,7 @@ class EditForm(FlaskForm):
 @app.route("/")
 def home():
     all_movies = db.session.execute(
-        db.select(MovieList).order_by(MovieList.ranking)).scalars()
+        db.select(MovieList).order_by(MovieList.ranking.desc())).scalars()
     return render_template("index.html", all_movies=all_movies)
 
 
@@ -134,6 +134,12 @@ def edit():
         movie_to_update.rating = form.rating.data
         movie_to_update.review = form.review.data
         db.session.commit()
+        all_movies = db.session.execute(
+        db.select(MovieList).order_by(MovieList.rating)).scalars().all()
+        
+        for i in range(len(all_movies)):
+            all_movies[i].ranking = len(all_movies) - i
+            db.session.commit()
         return redirect(url_for('home'))
     return render_template('edit.html', form=form, title=movie_to_update.title)
 
